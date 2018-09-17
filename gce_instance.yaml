@@ -1,0 +1,37 @@
+- name: Create instance(s)
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  vars:
+    machine_type: n1-standard-1
+    image: debian-7
+    networka: feo-sit-sandbox
+    subnetworka: feo-sit-sandbox-kub
+    zonea: us-east1-b
+    service_account_email: ansible-svc-account@feo-sit-sharedinfra-net.iam.gserviceaccount.com
+    credentials_file: /opt/keys/ansible-svc-account.json
+    project_id: feo-sit-sharedinfra-net
+
+  tasks:
+    - name: Launch instances
+      gce:
+          instance_names: dev
+          machine_type: "{{ machine_type }}"
+          image: "{{ image }}"
+          network: "{{ networka }}"
+          subnetwork: "{{ subnetworka }}"
+          zone: "{{ zonea }}"
+          service_account_email: "{{ service_account_email }}"
+          credentials_file: "{{ credentials_file }}"
+          project_id: "{{ project_id }}"
+          tags: webserver
+      register: gce
+
+    - name: Wait for SSH to come up
+      wait_for: host={{ item.public_ip }} port=22 delay=10 timeout=60
+      loop: "{{ gce.instance_data }}"
+
+    - name: Add host to groupname
+      add_host: hostname={{ item.public_ip }} groupname=new_instances
+      loop: "{{ gce.instance_data }}"
